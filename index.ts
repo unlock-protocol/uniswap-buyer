@@ -2,158 +2,12 @@ import { CurrencyAmount, Percent, Token, TradeType } from "@uniswap/sdk-core";
 import { Pool, Route, Trade, SwapRouter } from "@uniswap/v3-sdk";
 import { ethers } from "ethers";
 import IUniswapV3PoolABI from "@uniswap/v3-core/artifacts/contracts/interfaces/IUniswapV3Pool.sol/IUniswapV3Pool.json";
+import QUOTER_ABI from "./ABI/quoter.ts";
+import SWAP_ROUTER_ABI from "./ABI/swapRouter2.ts";
 
 const PRIVATE_KEY = process.env.PKEY!; // 🚨 Keep secure
 const provider = new ethers.JsonRpcProvider(process.env.RPC_URL!);
 const wallet = new ethers.Wallet(PRIVATE_KEY, provider);
-
-const QUOTER_ABI = [
-  {
-    inputs: [
-      { internalType: "address", name: "_factory", type: "address" },
-      { internalType: "address", name: "_WETH9", type: "address" },
-    ],
-    stateMutability: "nonpayable",
-    type: "constructor",
-  },
-  {
-    inputs: [],
-    name: "WETH9",
-    outputs: [{ internalType: "address", name: "", type: "address" }],
-    stateMutability: "view",
-    type: "function",
-  },
-  {
-    inputs: [],
-    name: "factory",
-    outputs: [{ internalType: "address", name: "", type: "address" }],
-    stateMutability: "view",
-    type: "function",
-  },
-  {
-    inputs: [
-      { internalType: "bytes", name: "path", type: "bytes" },
-      { internalType: "uint256", name: "amountIn", type: "uint256" },
-    ],
-    name: "quoteExactInput",
-    outputs: [
-      { internalType: "uint256", name: "amountOut", type: "uint256" },
-      {
-        internalType: "uint160[]",
-        name: "sqrtPriceX96AfterList",
-        type: "uint160[]",
-      },
-      {
-        internalType: "uint32[]",
-        name: "initializedTicksCrossedList",
-        type: "uint32[]",
-      },
-      { internalType: "uint256", name: "gasEstimate", type: "uint256" },
-    ],
-    stateMutability: "nonpayable",
-    type: "function",
-  },
-  {
-    inputs: [
-      {
-        components: [
-          { internalType: "address", name: "tokenIn", type: "address" },
-          { internalType: "address", name: "tokenOut", type: "address" },
-          { internalType: "uint256", name: "amountIn", type: "uint256" },
-          { internalType: "uint24", name: "fee", type: "uint24" },
-          {
-            internalType: "uint160",
-            name: "sqrtPriceLimitX96",
-            type: "uint160",
-          },
-        ],
-        internalType: "struct IQuoterV2.QuoteExactInputSingleParams",
-        name: "params",
-        type: "tuple",
-      },
-    ],
-    name: "quoteExactInputSingle",
-    outputs: [
-      { internalType: "uint256", name: "amountOut", type: "uint256" },
-      { internalType: "uint160", name: "sqrtPriceX96After", type: "uint160" },
-      {
-        internalType: "uint32",
-        name: "initializedTicksCrossed",
-        type: "uint32",
-      },
-      { internalType: "uint256", name: "gasEstimate", type: "uint256" },
-    ],
-    stateMutability: "nonpayable",
-    type: "function",
-  },
-  {
-    inputs: [
-      { internalType: "bytes", name: "path", type: "bytes" },
-      { internalType: "uint256", name: "amountOut", type: "uint256" },
-    ],
-    name: "quoteExactOutput",
-    outputs: [
-      { internalType: "uint256", name: "amountIn", type: "uint256" },
-      {
-        internalType: "uint160[]",
-        name: "sqrtPriceX96AfterList",
-        type: "uint160[]",
-      },
-      {
-        internalType: "uint32[]",
-        name: "initializedTicksCrossedList",
-        type: "uint32[]",
-      },
-      { internalType: "uint256", name: "gasEstimate", type: "uint256" },
-    ],
-    stateMutability: "nonpayable",
-    type: "function",
-  },
-  {
-    inputs: [
-      {
-        components: [
-          { internalType: "address", name: "tokenIn", type: "address" },
-          { internalType: "address", name: "tokenOut", type: "address" },
-          { internalType: "uint256", name: "amount", type: "uint256" },
-          { internalType: "uint24", name: "fee", type: "uint24" },
-          {
-            internalType: "uint160",
-            name: "sqrtPriceLimitX96",
-            type: "uint160",
-          },
-        ],
-        internalType: "struct IQuoterV2.QuoteExactOutputSingleParams",
-        name: "params",
-        type: "tuple",
-      },
-    ],
-    name: "quoteExactOutputSingle",
-    outputs: [
-      { internalType: "uint256", name: "amountIn", type: "uint256" },
-      { internalType: "uint160", name: "sqrtPriceX96After", type: "uint160" },
-      {
-        internalType: "uint32",
-        name: "initializedTicksCrossed",
-        type: "uint32",
-      },
-      { internalType: "uint256", name: "gasEstimate", type: "uint256" },
-    ],
-    stateMutability: "nonpayable",
-    type: "function",
-  },
-  {
-    inputs: [
-      { internalType: "int256", name: "amount0Delta", type: "int256" },
-      { internalType: "int256", name: "amount1Delta", type: "int256" },
-      { internalType: "bytes", name: "path", type: "bytes" },
-    ],
-    name: "uniswapV3SwapCallback",
-    outputs: [],
-    stateMutability: "view",
-    type: "function",
-  },
-];
 
 const POOL_ADDRESS = "0x9EF81F4E2F2f15Ff1c0C3f8c9ECc636580025242";
 const QUOTER_ADDRESS = "0x3d4e44Eb1374240CE5F1B871ab261CD16335B76a";
@@ -265,7 +119,6 @@ async function generateSwapTxn(amount: string) {
   if (approved < amountIn) {
     approval = {
       to: WETH.address,
-      value: "0",
       data: wethContract.interface.encodeFunctionData("approve", [
         SWAP_ROUTER_ADDRESS,
         amountIn,
@@ -283,17 +136,39 @@ async function generateSwapTxn(amount: string) {
   const { calldata: swapData, value: swapValue } =
     SwapRouter.swapCallParameters([uncheckedTrade], {
       slippageTolerance: new Percent(50, 10_000), // 50 bips, or 0.50%
-      deadline: Math.floor(Date.now() / 1000) + 60 * 20, // 20 minutes from the current Unix time
+      deadline: Math.floor(Date.now() / 1000) + 60 * 2, // 2 minutes from the current Unix time
       recipient: await wallet.getAddress(),
     });
 
+  const { args } = SwapRouter.INTERFACE.parseTransaction({
+    value: swapValue,
+    data: swapData,
+  });
+
+  const contract = new ethers.Contract(
+    SWAP_ROUTER_ADDRESS,
+    SWAP_ROUTER_ABI,
+    wallet,
+  );
+  const params = {
+    tokenIn: args[0].tokenIn,
+    tokenOut: args[0].tokenOut,
+    fee: args[0].fee,
+    recipient: args[0].recipient,
+    deadline: args[0].deadline.toString(),
+    amountIn: args[0].amountIn.toString(),
+    amountOutMinimum: args[0].amountOutMinimum.toString(),
+    sqrtPriceLimitX96: 0,
+  };
+
+  const swap = {
+    to: SWAP_ROUTER_ADDRESS,
+    data: contract.interface.encodeFunctionData("exactInputSingle", [params]),
+  };
+
   return {
     approval,
-    swap: {
-      to: SWAP_ROUTER_ADDRESS,
-      value: swapValue,
-      data: swapData,
-    },
+    swap,
   };
 }
 
