@@ -102,15 +102,29 @@ async function generateSwapTxn(amount: string) {
   // Get amount for quote!
   const amountOut: BigInt = await getQuote(amountIn, WETH, UP, pool.fee);
 
-  // Check approval!
   const wethContract = new ethers.Contract(
     WETH.address,
     [
+      "function balanceOf(address) view returns (uint256)",
       "function allowance(address, address) view returns (uint256)",
       "function approve(address, uint256) external",
+      "function deposit(uint256) payable external",
     ],
     wallet,
   );
+
+  // Check WETH balance!
+  let deposit;
+  const balance = await wethContract.balanceOf(wallet.address);
+  if (balance < amountIn) {
+    deposit = {
+      to: WETH.address,
+      data: wethContract.interface.encodeFunctionData("deposit", [amountIn]),
+      value: amountIn,
+    };
+  }
+
+  // Check approval!
   const approved = await wethContract.allowance(
     wallet.address,
     SWAP_ROUTER_ADDRESS,
@@ -167,6 +181,7 @@ async function generateSwapTxn(amount: string) {
   };
 
   return {
+    deposit,
     approval,
     swap,
   };
@@ -174,7 +189,11 @@ async function generateSwapTxn(amount: string) {
 
 const run = async () => {
   const eth = "0.001";
-  const { approval, swap } = await generateSwapTxn(eth);
+  const { deposit, approval, swap } = await generateSwapTxn(eth);
+
+  if (deposit) {
+    await (await wallet.sendTransaction(deposit)).wait();
+  }
 
   if (approval) {
     await (await wallet.sendTransaction(approval)).wait();
