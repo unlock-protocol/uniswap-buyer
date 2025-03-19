@@ -5,13 +5,15 @@ import IUniswapV3PoolABI from "@uniswap/v3-core/artifacts/contracts/interfaces/I
 import QUOTER_ABI from "./ABI/quoter.ts";
 import SWAP_ROUTER_ABI from "./ABI/swapRouter2.ts";
 
-const PRIVATE_KEY = process.env.PKEY!; // 🚨 Keep secure
 const provider = new ethers.JsonRpcProvider(process.env.RPC_URL!);
-const wallet = new ethers.Wallet(PRIVATE_KEY, provider);
+const wallet = new ethers.Wallet(process.env.PKEY!, provider);
 
 const POOL_ADDRESS = "0x9EF81F4E2F2f15Ff1c0C3f8c9ECc636580025242";
 const QUOTER_ADDRESS = "0x3d4e44Eb1374240CE5F1B871ab261CD16335B76a";
 const SWAP_ROUTER_ADDRESS = "0x2626664c2603336E57B271c5C0b26F421741e481";
+
+const SLIPPAGE = new Percent(50, 10_000);
+const DEADLINE_DELAY = 60 * 2; // 2 minutes
 
 // Util function to build @uniswap/v3-sdk Pool object from an address
 async function getPool(address: string) {
@@ -149,8 +151,8 @@ async function generateSwapTxn(amount: string) {
 
   const { calldata: swapData, value: swapValue } =
     SwapRouter.swapCallParameters([uncheckedTrade], {
-      slippageTolerance: new Percent(50, 10_000), // 50 bips, or 0.50%
-      deadline: Math.floor(Date.now() / 1000) + 60 * 2, // 2 minutes from the current Unix time
+      slippageTolerance: SLIPPAGE,
+      deadline: Math.floor(Date.now() / 1000) + DEADLINE_DELAY,
       recipient: await wallet.getAddress(),
     });
 
